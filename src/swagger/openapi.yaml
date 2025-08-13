@@ -1,0 +1,520 @@
+openapi: 3.0.3
+info:
+  title: Softtek Rimac API
+  description: API RESTful que integra SWAPI y API meteorológica con Serverless Framework
+  version: 1.0.0
+  contact:
+    name: Softtek Rimac
+    email: support@softtek-rimac.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    description: Production server
+    variables:
+      apiId:
+        description: API Gateway ID
+        default: your-api-id
+      region:
+        description: AWS Region
+        default: us-east-1
+      stage:
+        description: Deployment stage
+        default: dev
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /fusionados:
+    get:
+      summary: Obtener datos fusionados
+      description: Consulta las APIs de Star Wars y meteorológica, fusiona los datos y los almacena en la base de datos
+      tags:
+        - Data Fusion
+      responses:
+        '200':
+          description: Datos fusionados exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                data:
+                  character:
+                    name: "Luke Skywalker"
+                    height: 172
+                    mass: 77
+                    birth_year: "19 Before Battle of Yavin"
+                  planet:
+                    name: "Tatooine"
+                    diameter: 10465
+                    population: 200000
+                  weather:
+                    location:
+                      name: "Tatooine"
+                      country: "Tatooine"
+                    current:
+                      temp_c: 25.5
+                      humidity: 30
+                      condition:
+                        text: "Sunny"
+                timestamp: 1640995200000
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /almacenar:
+    post:
+      summary: Almacenar datos personalizados
+      description: Permite almacenar información personalizada en la base de datos (requiere autenticación)
+      tags:
+        - Data Storage
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomDataInput'
+            example:
+              title: "Mi dato personalizado"
+              description: "Descripción del dato"
+              category: "personal"
+              tags: ["tag1", "tag2"]
+              metadata:
+                source: "manual"
+                priority: "high"
+      responses:
+        '200':
+          description: Datos almacenados exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /historial:
+    get:
+      summary: Obtener historial de datos
+      description: Retorna el historial de todas las respuestas almacenadas, ordenado cronológicamente y paginado (requiere autenticación)
+      tags:
+        - Data History
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Número de página
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Número de elementos por página
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: type
+          in: query
+          description: Tipo de datos a consultar
+          required: false
+          schema:
+            type: string
+            enum: [fused, custom]
+        - name: category
+          in: query
+          description: Categoría de datos
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Historial obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      summary: Iniciar sesión
+      description: Autenticación de usuario para obtener token JWT
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email del usuario
+                password:
+                  type: string
+                  description: Contraseña del usuario
+            example:
+              email: "admin@example.com"
+              password: "admin123"
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/token:
+    get:
+      summary: Generar token de demostración
+      description: Genera un token JWT de demostración para testing (solo desarrollo)
+      tags:
+        - Authentication
+      parameters:
+        - name: role
+          in: query
+          description: Rol del usuario para el token
+          required: false
+          schema:
+            type: string
+            enum: [user, admin]
+            default: user
+      responses:
+        '200':
+          description: Token generado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtenido del endpoint /auth/login
+
+  schemas:
+    StarWarsCharacter:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Nombre del personaje
+        height:
+          oneOf:
+            - type: string
+            - type: number
+          description: Altura del personaje en cm
+        mass:
+          oneOf:
+            - type: string
+            - type: number
+          description: Masa del personaje en kg
+        birth_year:
+          type: string
+          description: Año de nacimiento en formato BBY/ABY
+        gender:
+          type: string
+          description: Género del personaje
+        homeworld:
+          type: string
+          description: Planeta natal del personaje
+
+    StarWarsPlanet:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Nombre del planeta
+        diameter:
+          oneOf:
+            - type: string
+            - type: number
+          description: Diámetro del planeta en km
+        population:
+          oneOf:
+            - type: string
+            - type: number
+          description: Población del planeta
+        climate:
+          type: string
+          description: Clima del planeta
+        terrain:
+          type: string
+          description: Terreno del planeta
+
+    WeatherData:
+      type: object
+      properties:
+        location:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Nombre de la ubicación
+            country:
+              type: string
+              description: País de la ubicación
+            lat:
+              type: number
+              description: Latitud
+            lon:
+              type: number
+              description: Longitud
+        current:
+          type: object
+          properties:
+            temp_c:
+              type: number
+              description: Temperatura en Celsius
+            humidity:
+              type: number
+              description: Humedad en porcentaje
+            condition:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Descripción de la condición climática
+
+    FusedData:
+      type: object
+      properties:
+        character:
+          $ref: '#/components/schemas/StarWarsCharacter'
+        planet:
+          $ref: '#/components/schemas/StarWarsPlanet'
+        weather:
+          $ref: '#/components/schemas/WeatherData'
+        fusion_timestamp:
+          type: number
+          description: Timestamp de la fusión de datos
+
+    CustomDataInput:
+      type: object
+      required:
+        - title
+        - description
+        - category
+      properties:
+        title:
+          type: string
+          description: Título de los datos
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          description: Descripción de los datos
+          minLength: 1
+          maxLength: 500
+        category:
+          type: string
+          description: Categoría de los datos
+          minLength: 1
+          maxLength: 50
+        tags:
+          type: array
+          items:
+            type: string
+          description: Etiquetas para categorizar los datos
+          maxItems: 10
+        metadata:
+          type: object
+          description: Metadatos adicionales en formato JSON
+
+    CustomData:
+      allOf:
+        - $ref: '#/components/schemas/CustomDataInput'
+        - type: object
+          properties:
+            id:
+              type: string
+              description: ID único de los datos
+            created_at:
+              type: number
+              description: Timestamp de creación
+            updated_at:
+              type: number
+              description: Timestamp de última actualización
+
+    PaginatedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/FusedData'
+              - $ref: '#/components/schemas/CustomData'
+        total:
+          type: number
+          description: Total de elementos
+        page:
+          type: number
+          description: Página actual
+        limit:
+          type: number
+          description: Elementos por página
+        hasNext:
+          type: boolean
+          description: Indica si hay más páginas
+        hasPrev:
+          type: boolean
+          description: Indica si hay páginas anteriores
+
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indica si la operación fue exitosa
+        data:
+          description: Datos de la respuesta
+        message:
+          type: string
+          description: Mensaje descriptivo
+        timestamp:
+          type: number
+          description: Timestamp de la respuesta
+
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: JWT token para autenticación
+                user:
+                  type: object
+                  properties:
+                    email:
+                      type: string
+                      description: Email del usuario
+                    role:
+                      type: string
+                      description: Rol del usuario
+
+    TokenResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: JWT token de demostración
+                role:
+                  type: string
+                  description: Rol del token
+                expires_in:
+                  type: string
+                  description: Tiempo de expiración
+                note:
+                  type: string
+                  description: Nota sobre el token
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            error:
+              type: string
+              description: Descripción del error
+
+tags:
+  - name: Data Fusion
+    description: Endpoints para fusionar datos de APIs externas
+  - name: Data Storage
+    description: Endpoints para almacenar datos personalizados
+  - name: Data History
+    description: Endpoints para consultar historial de datos
+  - name: Authentication
+    description: Endpoints para autenticación y autorización 

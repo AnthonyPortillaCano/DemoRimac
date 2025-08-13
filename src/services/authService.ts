@@ -1,0 +1,173 @@
+import { logger } from '../utils/logger';
+
+export interface JwtPayload {
+  userId: string;
+  email: string;
+  role: string;
+  iat: number;
+  exp: number;
+}
+
+export interface AuthResult {
+  isValid: boolean;
+  payload?: JwtPayload;
+  error?: string;
+}
+
+export class AuthService {
+  private readonly secretKey: string;
+  private readonly algorithm = 'HS256';
+
+  constructor() {
+    this.secretKey = process.env['JWT_SECRET'] || 'your-secret-key-change-in-production';
+  }
+
+  /**
+   * Generate JWT token
+   */
+  generateToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
+    try {
+      const header = {
+        alg: this.algorithm,
+        typ: 'JWT'
+      };
+
+      const now = Math.floor(Date.now() / 1000);
+      const exp = now + (24 * 60 * 60); // 24 hours
+
+      const jwtPayload: JwtPayload = {
+        ...payload,
+        iat: now,
+        exp
+      };
+
+      const encodedHeader = this.base64UrlEncode(JSON.stringify(header));
+      const encodedPayload = this.base64UrlEncode(JSON.stringify(jwtPayload));
+      
+      const signature = this.createSignature(`${encodedHeader}.${encodedPayload}`);
+      const encodedSignature = this.base64UrlEncode(signature);
+
+      return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
+    } catch (error) {
+      logger.error('Error generating JWT token:', error);
+      throw new Error('Failed to generate token');
+    }
+  }
+
+  /**
+   * Verify JWT token
+   */
+  verifyToken(token: string): AuthResult {
+    try {
+      if (!token) {
+        return { isValid: false, error: 'No token provided' };
+      }
+
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return { isValid: false, error: 'Invalid token format' };
+      }
+
+      const [encodedHeader, encodedPayload, encodedSignature] = parts as [string, string, string];
+
+      // Verify signature
+      const expectedSignature = this.createSignature(`${encodedHeader}.${encodedPayload}`);
+      const expectedEncodedSignature = this.base64UrlEncode(expectedSignature);
+
+      if (encodedSignature !== expectedEncodedSignature) {
+        return { isValid: false, error: 'Invalid signature' };
+      }
+
+      // Decode payload
+      const payload = JSON.parse(this.base64UrlDecode(encodedPayload)) as JwtPayload;
+
+      // Check expiration
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp < now) {
+        return { isValid: false, error: 'Token expired' };
+      }
+
+      return { isValid: true, payload };
+    } catch (error) {
+      logger.error('Error verifying JWT token:', error);
+      return { isValid: false, error: 'Token verification failed' };
+    }
+  }
+
+  /**
+   * Extract token from Authorization header
+   */
+  extractTokenFromHeader(authHeader: string | undefined): string | null {
+    if (!authHeader) return null;
+
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      return null;
+    }
+
+    return parts[1] || null;
+  }
+
+  /**
+   * Create HMAC signature
+   */
+  private createSignature(data: string): string {
+    // Simple HMAC implementation for demo purposes
+    // In production, use a proper crypto library
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(this.secretKey);
+    const messageData = encoder.encode(data);
+    
+    // Simple hash function (not cryptographically secure for production)
+    let hash = 0;
+    for (let i = 0; i < messageData.length; i++) {
+      const char = messageData[i];
+      hash = ((hash << 5) - hash + char) & 0xffffffff;
+    }
+    
+    return hash.toString(16);
+  }
+
+  /**
+   * Base64 URL encoding
+   */
+  private base64UrlEncode(str: string): string {
+    return Buffer.from(str).toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  }
+
+  /**
+   * Base64 URL decoding
+   */
+  private base64UrlDecode(str: string): string {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) {
+      str += '=';
+    }
+    return Buffer.from(str, 'base64').toString();
+  }
+
+  /**
+   * Generate demo token for testing
+   */
+  generateDemoToken(): string {
+    return this.generateToken({
+      userId: 'demo-user-123',
+      email: 'demo@example.com',
+      role: 'user'
+    });
+  }
+
+  /**
+   * Generate admin token for testing
+   */
+  generateAdminToken(): string {
+    return this.generateToken({
+      userId: 'demo-admin-456',
+      email: 'admin@example.com',
+      role: 'admin'
+    });
+  }
+} 
