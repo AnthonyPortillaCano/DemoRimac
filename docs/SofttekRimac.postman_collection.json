@@ -1,0 +1,165 @@
+{
+  "info": {
+    "name": "Softtek Rimac API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "a4b8af3a-8d8d-4a4d-9c9e-111111111111"
+  },
+  "item": [
+    {
+      "name": "Auth - Login (demo user)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"user123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Token (admin demo)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/token?role=admin",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "token"
+          ],
+          "query": [
+            {
+              "key": "role",
+              "value": "admin"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Register (MySQL)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"tu@correo.com\",\n  \"password\": \"TuPass123\",\n  \"role\": \"user\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fusionados - GET",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/fusionados",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fusionados"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Almacenar - POST (JWT)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Mi Nota\",\n  \"description\": \"Descripcion\",\n  \"category\": \"personal\",\n  \"tags\": [\"importante\"],\n  \"metadata\": {\n    \"priority\": \"high\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/almacenar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "almacenar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Historial - GET (JWT)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/historial?page=1&limit=10&type=fused",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "historial"
+          ],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "10" },
+            { "key": "type", "value": "fused" }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/dev" },
+    { "key": "jwt", "value": "" }
+  ]
+} 

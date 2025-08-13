@@ -6,20 +6,21 @@ Una API RESTful desarrollada con Node.js 20, TypeScript y Serverless Framework q
 
 - **Integración de APIs**: Combina datos de SWAPI y WeatherAPI
 - **Fusión de datos**: Crea modelos unificados con información de personajes y clima
-- **Sistema de caché**: Implementa caché de 30 minutos para optimizar rendimiento
-- **Base de datos**: Almacenamiento en DynamoDB con TTL automático
+- **Sistema de caché**: Implementa caché de 30 minutos para optimizar rendimiento (persistido en base de datos)
+- **Base de datos**: Almacenamiento en DynamoDB (por defecto) o MySQL (configurable)
 - **Validación**: Validación robusta de entrada con Joi
 - **Logging**: Sistema de logging estructurado con Winston
-- **Trazabilidad**: Integración con AWS X-Ray para monitoreo
+- **Trazabilidad**: Soporte para AWS X-Ray
 - **Testing**: Pruebas unitarias y de integración con Jest
-- **TypeScript**: Tipado estático para mayor seguridad del código
+- **Autenticación**: JWT para proteger endpoints sensibles (bonus)
+- **Rate limiting**: Límite de solicitudes para evitar abuso en endpoints externos (bonus)
 
 ## 🏗️ Arquitectura
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   API Gateway  │───▶│   AWS Lambda    │───▶│   DynamoDB      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌──────────────────────────┐
+│   API Gateway  │───▶│   AWS Lambda    │───▶│   DynamoDB ó MySQL       │
+└─────────────────┘    └─────────────────┘    └──────────────────────────┘
                               │
                               ▼
                        ┌─────────────────┐
@@ -27,7 +28,7 @@ Una API RESTful desarrollada con Node.js 20, TypeScript y Serverless Framework q
                        │  - Star Wars    │
                        │  - Weather      │
                        │  - Fusion       │
-                       │  - Database     │
+                       │  - Persistence  │
                        └─────────────────┘
 ```
 
@@ -71,7 +72,9 @@ Obtiene datos fusionados de Star Wars y meteorológicos.
 ```
 
 ### 2. POST /almacenar
-Almacena información personalizada en la base de datos.
+Almacena información personalizada en la base de datos. Requiere autenticación (JWT) cuando está habilitada.
+
+**Headers:** `Authorization: Bearer <token>`
 
 **Body:**
 ```json
@@ -108,11 +111,13 @@ Almacena información personalizada en la base de datos.
 ```
 
 ### 3. GET /historial
-Consulta el historial de datos almacenados con paginación.
+Consulta el historial de datos almacenados con paginación. Requiere autenticación (JWT) cuando está habilitada.
+
+**Headers:** `Authorization: Bearer <token>`
 
 **Query Parameters:**
 - `page`: Número de página (default: 1)
-- `limit`: Elementos por página (default: 10, max: 100)
+- `limit`: Elementos por página (default: 10)
 - `type`: Tipo de datos (`fused` o `custom`)
 - `category`: Categoría para filtrar
 
@@ -132,12 +137,100 @@ Consulta el historial de datos almacenados con paginación.
 }
 ```
 
+### Endpoints de autenticación (bonus)
+
+- `POST /auth/login` — Body: `{ "email": "...", "password": "..." }`
+- `POST /auth/register` — Body: `{ "email": "...", "password": "...", "role": "user|admin" }` (requiere MySQL configurado)
+- `GET /auth/token?role=user|admin` — Genera token de demo para pruebas
+
+## 🔌 Ejemplos con curl
+
+Base URL local: `http://localhost:3000/dev`
+
+- Login (demo user)
+```bash
+curl -s -X POST http://localhost:3000/dev/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"user123"}'
+```
+
+- Login (MySQL user registrado)
+```bash
+curl -s -X POST http://localhost:3000/dev/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"tu@correo.com","password":"tuPassword"}'
+```
+
+- Obtener token de demo (admin)
+```bash
+curl -s "http://localhost:3000/dev/auth/token?role=admin"
+```
+
+- Fusionados (GET)
+```bash
+curl -s http://localhost:3000/dev/fusionados
+```
+
+- Almacenar (POST) con JWT
+```bash
+TOKEN="<pega_aqui_tu_token>"
+curl -s -X POST http://localhost:3000/dev/almacenar \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title":"Mi Nota",
+    "description":"Descripción",
+    "category":"personal",
+    "tags":["importante"],
+    "metadata":{"priority":"high"}
+  }'
+```
+
+- Historial (GET) con JWT
+```bash
+TOKEN="<pega_aqui_tu_token>"
+curl -s "http://localhost:3000/dev/historial?page=1&limit=10&type=fused" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## ⚡ Quickstart local con MySQL
+
+1) Configura `env.development`:
+```env
+DB_ENGINE=mysql
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=<tu_usuario>
+MYSQL_PASSWORD=<tu_password>
+MYSQL_DATABASE=softtek_rimac
+```
+
+2) Arranca en modo desarrollo (Windows PowerShell):
+```powershell
+$env:NODE_ENV='development'; npm run dev
+```
+
+3) Registra un usuario y haz login:
+```bash
+# Register (crea DB y tabla users si no existen)
+curl -s -X POST http://localhost:3000/dev/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"tu@correo.com","password":"TuPass123","role":"user"}'
+
+# Login
+curl -s -X POST http://localhost:3000/dev/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"tu@correo.com","password":"TuPass123"}'
+```
+
+4) Usa el token para llamar endpoints protegidos (`/almacenar` y `/historial`).
+
 ## 🛠️ Tecnologías
 
 - **Runtime**: Node.js 20
 - **Framework**: Serverless Framework
 - **Lenguaje**: TypeScript
-- **Base de datos**: Amazon DynamoDB
+- **Base de datos**: Amazon DynamoDB o MySQL (configurable por entorno)
 - **Compute**: AWS Lambda
 - **API Gateway**: Amazon API Gateway
 - **Monitoreo**: AWS X-Ray, CloudWatch
@@ -150,8 +243,8 @@ Consulta el historial de datos almacenados con paginación.
 
 ### Prerrequisitos
 - Node.js 20 o superior
-- AWS CLI configurado
 - Serverless Framework instalado globalmente
+- (Opcional) AWS CLI configurado para despliegues a AWS
 
 ### Pasos de instalación
 
@@ -168,18 +261,15 @@ npm install
 
 3. **Configurar variables de entorno**
 ```bash
-cp .env.example .env
+cp env.development .env.development
+# o edita env.development directamente
 ```
 
-Editar `.env` con tus credenciales:
-```env
-AWS_REGION=us-east-1
-WEATHER_API_KEY=tu_api_key_de_weatherapi
-NODE_ENV=development
-LOG_LEVEL=info
-```
+Variables clave:
+- Para DynamoDB (por defecto): `DB_ENGINE=dynamo`
+- Para MySQL local: `DB_ENGINE=mysql` y configurar `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`
 
-4. **Ejecutar en modo desarrollo**
+4. **Ejecutar en modo desarrollo (offline)**
 ```bash
 npm run dev
 ```
@@ -190,7 +280,7 @@ npm test
 npm run test:coverage
 ```
 
-6. **Desplegar a AWS**
+6. **Desplegar a AWS** (requiere credenciales AWS configuradas)
 ```bash
 npm run deploy
 ```
@@ -206,14 +296,22 @@ npm run deploy
 | `NODE_ENV` | Entorno de ejecución | `development` |
 | `LOG_LEVEL` | Nivel de logging | `info` |
 | `DYNAMODB_TABLE` | Nombre de la tabla DynamoDB | `softtek-rimac-api-{stage}` |
+| `DB_ENGINE` | Motor de persistencia: `dynamo` o `mysql` | `dynamo` |
+| `MYSQL_HOST` | Host MySQL (si `DB_ENGINE=mysql`) | `''` |
+| `MYSQL_PORT` | Puerto MySQL | `3306` |
+| `MYSQL_USER` | Usuario MySQL | `''` |
+| `MYSQL_PASSWORD` | Password MySQL | `''` |
+| `MYSQL_DATABASE` | Base de datos MySQL | `''` |
+| `MYSQL_TABLE` | Tabla MySQL para items | `items` |
+| `JWT_SECRET` | Secreto para firmar JWT | `your-secret-key-change-in-production` |
 
 ### Configuración de Serverless
 
 El archivo `serverless.yml` incluye:
-- Configuración de Lambda con timeout de 30s y 512MB de memoria
+- Configuración de Lambda con timeout de 15s y 256MB de memoria
 - Configuración de DynamoDB con índices globales
-- Configuración de X-Ray para trazabilidad
-- Configuración de CORS para API Gateway
+- Soporte para X-Ray y CORS
+- Empaquetado con esbuild (minify)
 
 ## 🧪 Testing
 
@@ -240,9 +338,7 @@ npm run test:coverage
 ## 📊 Monitoreo y Observabilidad
 
 ### AWS X-Ray
-- Trazabilidad de requests
-- Análisis de latencias
-- Identificación de cuellos de botella
+- Trazabilidad de requests (habilitado en funciones; instrumentación adicional opcional)
 
 ### CloudWatch
 - Logs estructurados
@@ -281,17 +377,14 @@ serverless rollback --stage prod
 
 ## 📈 Optimización de Costos
 
-- **Lambda**: Timeout optimizado a 30s
+- **Lambda**: Timeout optimizado a 15s
 - **DynamoDB**: Modo pay-per-request
 - **Caché**: TTL de 30 minutos para reducir llamadas a APIs externas
-- **Memoria**: 512MB para balance entre rendimiento y costo
+- **Memoria**: 256MB para balance entre rendimiento y costo
 
 ## 🔄 Caché
 
-El sistema implementa un sistema de caché de dos niveles:
-
-1. **Caché en memoria**: Para servicios individuales (30 minutos)
-2. **Caché en DynamoDB**: Para respuestas completas (30 minutos)
+La API utiliza un caché persistido en la base de datos (DynamoDB o MySQL) por 30 minutos para evitar llamadas repetidas a las APIs externas.
 
 ## 🐛 Troubleshooting
 
